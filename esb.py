@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""esb - event storming board. Jeden plik .md -> lokalna interaktywna tablica. Tylko stdlib.
-Użycie: esb.py init|serve|check|next|snap|diff [plik.md] [--port N] [--mode brownfield] [--force]"""
+"""esb - event storming board. One .md file -> local interactive board. Stdlib only.
+Usage: esb.py init|serve|check|next|snap|diff [file.md] [--port N] [--mode brownfield] [--force]"""
 import sys, re, os, json, shutil, argparse, threading
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -52,36 +52,36 @@ def check(b):
     out, ids, p, used, hyp = [], {}, b['phase'], set(), 0
     for it in b['items']:
         if it['id'] in ids:
-            out.append(['E', f"{it['id']}: duplikat ID"])
+            out.append(['E', f"{it['id']}: duplicate ID"])
         ids[it['id']] = it
     live = [i for i in b['items'] if status(i) != 'rej']
     for it in live:
         i, t, kv = it['id'], it['type'], it['kv']
         if t not in TYPES:
-            out.append(['E', f'{i}: nieznany typ {t}'])
+            out.append(['E', f'{i}: unknown type {t}'])
         elif t not in ALLOWED.get(p, TYPES):
-            out.append(['E', f'{i}: typ {t} niedozwolony w fazie {p}'])
+            out.append(['E', f'{i}: type {t} not allowed in phase {p}'])
         for r in by(it) + ([kv['agg']] if kv.get('agg') else []):
             used.add(r)
             if r not in ids:
-                out.append(['E', f'{i}: nieznane odwołanie {r}'])
+                out.append(['E', f'{i}: unknown reference {r}'])
         if p >= 2 and t == 'event' and not by(it):
-            out.append(['E', f'{i}: zdarzenie bez przyczyny (by=)'])
+            out.append(['E', f'{i}: event without a cause (by=)'])
         if p >= 2 and t == 'cmd' and not by(it):
-            out.append(['E', f'{i}: komenda bez aktora/polityki (by=)'])
+            out.append(['E', f'{i}: command without an actor/policy (by=)'])
         if p >= 3 and t == 'event' and 'agg' not in kv:
-            out.append(['W', f'{i}: zdarzenie bez agregatu (agg=)'])
+            out.append(['W', f'{i}: event without an aggregate (agg=)'])
         if kv.get('code') and not os.path.exists(kv['code'].split(':')[0]):
-            out.append(['W', f"{i}: brak pliku {kv['code'].split(':')[0]}"])
+            out.append(['W', f"{i}: file not found {kv['code'].split(':')[0]}"])
         if status(it) == 'disp':
-            out.append(['W', f'{i}: SPORNE - wymaga decyzji'])
+            out.append(['W', f'{i}: DISPUTED - needs a decision'])
         hyp += status(it) == 'hyp'
     if p >= 2:
         for it in live:
             if it['type'] in ('actor', 'policy', 'read', 'ext') and not by(it) and it['id'] not in used:
-                out.append(['W', f"{it['id']}: osierocony element"])
+                out.append(['W', f"{it['id']}: orphaned element"])
     if hyp:
-        out.append(['W', f'{hyp} hipotez czeka na potwierdzenie'])
+        out.append(['W', f'{hyp} hypotheses awaiting confirmation'])
     return out
 
 
@@ -129,20 +129,20 @@ def snap_path(path):
 def diff(path):
     sp = snap_path(path)
     if not os.path.exists(sp):
-        return 'brak migawki (esb.py snap) - czytaj cały plik'
+        return 'no snapshot (run esb.py snap) - read the whole file'
     new, old = parse(path), parse(sp)
     a, c, out = {i['id']: i for i in old['items']}, {i['id']: i for i in new['items']}, []
     sig = lambda i: (i['type'], i['text'], tuple(sorted(i['kv'].items())), i['ctx'], tuple(i['comments']))
     if old['phase'] != new['phase']:
-        out.append(f"faza {old['phase']} -> {new['phase']}")
+        out.append(f"phase {old['phase']} -> {new['phase']}")
     for i, it in c.items():
         if i not in a:
             out.append('+ ' + fmt(it) + f"  [{it['ctx']}]")
         elif sig(a[i]) != sig(it):
             out.append('~ ' + fmt(it))
             out += ['    > ' + x for x in it['comments'] if x not in a[i]['comments']]
-    out += [f'- {i} (usunięte)' for i in a if i not in c]
-    return '\n'.join(out) or 'brak zmian od ostatniej migawki'
+    out += [f'- {i} (removed)' for i in a if i not in c]
+    return '\n'.join(out) or 'no changes since the last snapshot'
 
 
 def serve(path, port):
@@ -165,7 +165,7 @@ def serve(path, port):
             edit(path, json.loads(s.rfile.read(int(s.headers['Content-Length']))))
             s.send('{"ok":1}')
 
-    print(f'Tablica: http://127.0.0.1:{port}  (plik: {path})')
+    print(f'Board: http://127.0.0.1:{port}  (file: {path})')
     ThreadingHTTPServer(('127.0.0.1', port), H).serve_forever()
 
 
@@ -173,7 +173,7 @@ TEMPLATE = """# Event Storming: {title}
 mode: {mode}
 phase: 1
 
-## Główny kontekst
+## Main context
 """
 
 
@@ -183,21 +183,21 @@ def main():
     ap.add_argument('file', nargs='?', default='event_storming.md')
     ap.add_argument('--port', type=int, default=8787)
     ap.add_argument('--mode', default='greenfield')
-    ap.add_argument('--title', default='Nowy projekt')
+    ap.add_argument('--title', default='New project')
     ap.add_argument('--force', action='store_true')
     a = ap.parse_args()
     f = a.file
     if a.cmd == 'init':
         if os.path.exists(f):
-            sys.exit(f'{f} już istnieje')
+            sys.exit(f'{f} already exists')
         open(f, 'w', encoding='utf-8').write(TEMPLATE.format(title=a.title, mode=a.mode))
-        print('utworzono', f)
+        print('created', f)
     elif a.cmd == 'serve':
         serve(f, a.port)
     elif a.cmd == 'snap':
         os.makedirs('.esb', exist_ok=True)
         shutil.copy(f, snap_path(f))
-        print('migawka zapisana')
+        print('snapshot saved')
     elif a.cmd == 'diff':
         print(diff(f))
     else:
@@ -207,19 +207,19 @@ def main():
             print(lv, m)
         errs = [m for lv, m in iss if lv == 'E']
         if a.cmd == 'check':
-            print(f"faza {b['phase']}: {len(b['items'])} elementów, {len(errs)} błędów")
+            print(f"phase {b['phase']}: {len(b['items'])} items, {len(errs)} errors")
             sys.exit(1 if errs else 0)
-        blockers = [m for lv, m in iss if lv == 'E' or 'SPORNE' in m or 'hipotez' in m]
+        blockers = [m for lv, m in iss if lv == 'E' or 'DISPUTED' in m or 'hypotheses' in m]
         if blockers and not a.force:
-            sys.exit('NIE przechodzę dalej - rozwiąż powyższe (albo --force)')
+            sys.exit('Not advancing - resolve the above (or use --force)')
         if b['phase'] >= 3:
-            sys.exit('To ostatnia faza - wygeneruj plan implementacji')
+            sys.exit('Last phase - generate the implementation plan')
         L = b['lines']
         for n, l in enumerate(L):
             if re.match(r'^phase:', l):
                 L[n] = f"phase: {b['phase'] + 1}"
         write(f, L)
-        print('faza ->', b['phase'] + 1)
+        print('phase ->', b['phase'] + 1)
 
 
 HTML = r'''<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Event Storming</title>
@@ -270,22 +270,22 @@ function draw(){
     return`<line x1=${a.x+56+dx*t} y1=${a.y+28+dy*t} x2=${i.x+56-dx*t} y2=${i.y+28-dy*t} stroke="#888" marker-end="url(#a)"/>`;
   })).join('');
   h+=`<svg style="position:absolute;left:0;top:0;pointer-events:none" width=${x+200} height=${lanes.length*LH+50}><defs><marker id=a markerWidth=8 markerHeight=8 refX=7 refY=4 orient=auto><path d="M0,0L8,4L0,8z" fill="#888"/></marker></defs>${lines}</svg>`;
-  h+=it.map(i=>`<div class="n ${i.st} ${sel==i.id?'sel':''}" style="left:${i.x}px;top:${i.y}px;background:${C[i.type]||'#ddd'}" onclick="sel='${i.id}';draw()"><small>${i.id} ${i.type}${i.src=='agent'?' (agent)':''}${i.comments.length?' / '+i.comments.length+' kom.':''}</small>${esc(i.text)}</div>`).join('');
+  h+=it.map(i=>`<div class="n ${i.st} ${sel==i.id?'sel':''}" style="left:${i.x}px;top:${i.y}px;background:${C[i.type]||'#ddd'}" onclick="sel='${i.id}';draw()"><small>${i.id} ${i.type}${i.src=='agent'?' (agent)':''}${i.comments.length?' / '+i.comments.length+' comments':''}</small>${esc(i.text)}</div>`).join('');
   cv.innerHTML=h;
   const s=m[sel],id=s?s.id:'';
-  side.innerHTML=`<b>${esc(B.title)}</b><br>Faza ${B.phase}, tryb ${B.mode}<hr>`
-   +(B.issues.map(([l,t])=>`<div class=${l}>${esc(t)}</div>`).join('')||'Brak uwag')+'<hr>'
+  side.innerHTML=`<b>${esc(B.title)}</b><br>Phase ${B.phase}, mode ${B.mode}<hr>`
+   +(B.issues.map(([l,t])=>`<div class=${l}>${esc(t)}</div>`).join('')||'No issues')+'<hr>'
    +(s?`<b>${s.id} ${s.type}</b> (${s.st}, ${s.src})
     <input value="${esc(s.text)}" onchange="api({op:'set',id:'${id}',text:this.value})">
-    <button onclick="api({op:'set',id:'${id}',st:'ok'})">Potwierdź</button>
-    <button onclick="api({op:'set',id:'${id}',st:'disp'})">Sporne</button>
-    <button onclick="api({op:'set',id:'${id}',st:'rej'})">Odrzuć</button>
-    <button onclick="if(confirm('Usunąć ${id}?'))api({op:'del',id:'${id}'})">Usuń</button>
+    <button onclick="api({op:'set',id:'${id}',st:'ok'})">Confirm</button>
+    <button onclick="api({op:'set',id:'${id}',st:'disp'})">Disputed</button>
+    <button onclick="api({op:'set',id:'${id}',st:'rej'})">Reject</button>
+    <button onclick="if(confirm('Delete ${id}?'))api({op:'del',id:'${id}'})">Delete</button>
     ${s.comments.map(c=>`<div>&gt; ${esc(c)}</div>`).join('')}
-    <input placeholder="Komentarz i Enter" onkeydown="if(event.key=='Enter')api({op:'comment',id:'${id}',text:this.value})"><hr>`:'<i>Kliknij karteczkę</i><hr>')
-   +`Dodaj ${s?'po '+id:'na końcu'}:<select id=ty>${Object.keys(C).map(t=>`<option>${t}</option>`).join('')}</select>
-    <input id=nt placeholder="Tekst"><input id=nb placeholder="by (np. C1,A1)">
-    <button onclick="api({op:'add',id:'${id}',type:ty.value,text:nt.value,by:nb.value})">Dodaj</button>`;
+    <input placeholder="Comment, then Enter" onkeydown="if(event.key=='Enter')api({op:'comment',id:'${id}',text:this.value})"><hr>`:'<i>Click a sticky note</i><hr>')
+   +`Add ${s?'after '+id:'at the end'}:<select id=ty>${Object.keys(C).map(t=>`<option>${t}</option>`).join('')}</select>
+    <input id=nt placeholder="Text"><input id=nb placeholder="by (np. C1,A1)">
+    <button onclick="api({op:'add',id:'${id}',type:ty.value,text:nt.value,by:nb.value})">Add</button>`;
 }
 load(1);setInterval(()=>load(),1500);
 </script>

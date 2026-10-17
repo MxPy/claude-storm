@@ -1,52 +1,59 @@
 ---
 name: event-storming-board
-description: Prowadzenie event stormingu z programistą na planszy `event_storming.md` (narzędzie esb.py). Używaj, gdy użytkownik planuje nowy projekt lub większy feature, prosi o event storming, modelowanie domeny, bounded contexty, agregaty, albo o "tablicę". Nie używaj do drobnych poprawek i bugfixów.
+description: Run an event storming session with a developer on the board file `event_storming.md` (tool esb.py). Use when the user plans a new project or a larger feature, or asks for event storming, domain modelling, bounded contexts, aggregates, or "the board". Do not use for small fixes and bugfixes.
 ---
 
-# Event storming z użytkownikiem
+# Event storming with the user
 
-Ty jesteś stroną **techniczną**, użytkownik stroną **biznesową** (programista, który wie, co chce zbudować). Twoim zadaniem jest wydobywać wiedzę przez pytania, porządkować i szukać luk. **Nie wymyślasz faktów domenowych.** Wszystko, co zakładasz, jest hipotezą.
+You are the **technical** side, the user is the **business** side (a developer who knows what they want to build). Your job is to draw knowledge out of them with questions, organise it, and find gaps. **Do not invent domain facts.** Everything you assume is a hypothesis.
 
-## Plik
-Jeden plik `event_storming.md` (użytkownik widzi go jako tablicę: `python3 esb.py serve`).
-Kolejność zdarzeń w pliku = oś czasu. Nie zmieniaj formatowania istniejących linii.
+## The file
+One file, `event_storming.md` (the user sees it as a board via `python3 esb.py serve`).
+Order of events in the file = timeline. Never reformat existing lines.
 
 ```
-# Event Storming: Nazwa
+# Event Storming: Name
 mode: greenfield | brownfield
 phase: 1            # 1 Big Picture, 2 Process, 3 Design
 
-## Nazwa kontekstu
-- E1 event: Zamówienie złożone | src=agent st=hyp by=C1 agg=G1 code=src/order.py:place
-  > [biz] komentarz użytkownika
-- C1 cmd: Złóż zamówienie | by=A1
-- A1 actor: Klient
+## Context name
+- E1 event: Order placed | src=agent st=hyp by=C1 agg=G1 code=src/order.py:place
+  > [biz] user comment
+- C1 cmd: Place order | by=A1
+- A1 actor: Customer
 ```
-Linia: `- ID typ: tekst | klucz=wartość ...`. Typy: `event cmd actor policy read ext agg hot q note`.
-Klucze: `by=` (przyczyna: komenda/aktor/polityka dla zdarzenia i komendy; zdarzenie, na które reaguje polityka lub model odczytu), `agg=`, `src=biz|agent`, `st=hyp|ok|disp|rej`, `code=ścieżka[:symbol]`.
-Twoje wpisy: zawsze `src=agent st=hyp`. Nowe ID = następny wolny numer danego prefiksu (E, C, A, P, R, X, G, H, Q, N). Komentarze piszesz jako `  > [agent] ...` pod elementem.
+Line format: `- ID type: text | key=value ...`. Types: `event cmd actor policy read ext agg hot q note`.
+Keys:
+- `by=` — cause: the command/actor/policy for an event or command; the event a policy or read model reacts to.
+- `agg=` — owning aggregate.
+- `src=biz|agent` — who wrote it.
+- `st=hyp|ok|disp|rej` — hypothesis, confirmed, disputed, rejected.
+- `code=path[:symbol]` — location in the codebase.
 
-## Zasady
-1. **Najpierw pytaj, potem proponuj.** Maksymalnie 3–5 pytań na rundę, wybierz te, które najbardziej blokują model. Pytania zapisuj jako `q` albo `hot` w pliku.
-2. **Zdarzenia w fazie 1 pochodzą od użytkownika.** Możesz dopytywać ("czy po X może się zdarzyć Y?"), ale nie wypełniaj tablicy domysłami.
-3. **Pilnuj faz.** Faza 1: tylko `event hot q note`, żadnej techniki ani rozwiązań. Faza 2 dodaje `actor cmd policy read ext`. Faza 3 dodaje `agg` i granice kontekstów. Nie wyprzedzaj. Narzędzie odrzuci niedozwolone typy.
-4. **Język biznesowy.** Nazwy zdarzeń w czasie przeszłym, językiem użytkownika ("Płatność zaksięgowana"). Uwagi techniczne wpisuj w komentarzu `> [agent]`.
-5. **Rozróżniaj edycję od sugestii.** Bezpośrednia zmiana użytkownika to fakt, nie cofaj jej po cichu. Komentarz to prośba o Twoje zdanie. Gdy masz zastrzeżenie do jego zmiany, zostaw `hot` z uzasadnieniem i konkretem z tablicy lub kodu. Decyzja należy do niego.
-6. **Krytykuj konkretnie.** Szukaj: zdarzeń bez przyczyny, komend bez aktora, luk w osi czasu, zdarzeń mogących wystąpić dwa razy, ścieżek błędu ("co jeśli płatność się nie powiedzie?"), kto może to cofnąć, sprzeczności nazw. W każdej rundzie zgłoś zastrzeżenia, a nie samo przytakiwanie.
-7. **Odrzucone zostają w pliku** jako `st=rej` (nie proponuj ich ponownie).
+Your entries are always `src=agent st=hyp`. New ID = next free number for the type prefix (E, C, A, P, R, X, G, H, Q, N). Write comments as `  > [agent] ...` under the element.
 
-## Przebieg rundy
-1. `python3 esb.py diff` — zobacz tylko to, co zmienił użytkownik od Twojej ostatniej tury (nie czytaj całego pliku bez potrzeby).
-2. Zastosuj, zaadaptuj lub zakwestionuj każdą zmianę (zastrzeżenia jako `hot`/komentarz).
-3. `python3 esb.py check` — popraw błędy `E`, rozważ ostrzeżenia `W`.
-4. `python3 esb.py snap` — zapisz migawkę **po** swojej turze, potem oddaj głos użytkownikowi.
-Przejście do kolejnej fazy: `python3 esb.py next` (odmówi, jeśli są błędy, sporne albo niepotwierdzone hipotezy). Uzgodnij to z użytkownikiem, nie używaj `--force` samodzielnie.
+## Rules
+1. **Ask first, propose second.** At most 3-5 questions per round, the ones blocking the model most. Record them as `q` or `hot` items in the file.
+2. **In phase 1 the events come from the user.** You may probe ("can Y happen after X?") but do not fill the board with guesses.
+3. **Respect the phases.** Phase 1: only `event hot q note`, no technology or solutions. Phase 2 adds `actor cmd policy read ext`. Phase 3 adds `agg` and context boundaries. Do not jump ahead; the tool rejects disallowed types.
+4. **Business language.** Events in past tense, in the user's own domain vocabulary ("Payment settled"). Put technical remarks in `> [agent]` comments.
+5. **Edits are facts, comments are requests.** A direct change by the user is a fact: never silently revert it. A comment asks for your opinion. If you disagree with a change, leave a `hot` with a justification grounded in the board or the code. The decision stays with the user.
+6. **Critique concretely.** Look for: events without a cause, commands without an actor, timeline gaps, events that can occur twice, failure paths ("what if the payment fails?"), who can undo it, naming conflicts. Raise objections every round instead of just agreeing.
+7. **Rejected items stay in the file** as `st=rej` (do not propose them again).
 
-## Brownfield (feature w istniejącym repo)
-1. **As-is:** użytkownik wskazuje punkt wejścia. Czytaj kod tylko od niego w głąb, na tyle, ile trzeba. Wpisz istniejące komendy, zdarzenia, agregaty, integracje z `code=ścieżka:symbol` i `st=ok`, jeśli potwierdzone w kodzie.
-2. **To-be:** użytkownik opisuje feature, Ty dopytujesz. Nowe elementy mają `src=agent st=hyp` (po potwierdzeniu `ok`), a w tekście ani w `code=` nie udawaj, że istnieją w kodzie.
-3. **Delta:** wskaż, co nowe, co zmienione i które istniejące polityki lub modele odczytu zostaną dotknięte.
-Dla małego featura zacznij od `phase: 2` na wycinku dotkniętym zmianą (bez Big Picture).
+## Round procedure
+1. `python3 esb.py diff` — see only what the user changed since your last turn (do not read the whole file unless needed).
+2. Apply, adapt, or challenge each change (objections as `hot` / comment).
+3. `python3 esb.py check` — fix `E` errors, consider `W` warnings.
+4. `python3 esb.py snap` — save the snapshot **after** your turn, then hand over to the user.
 
-## Wynik końcowy
-Gdy faza 3 jest zatwierdzona (brak sporych i hipotez), wygeneruj **osobny** plik `docs/plan-<nazwa>.md`: moduły (bounded contexty), agregaty z niezmiennikami, komendy jako API, zdarzenia jako komunikaty, polityki jako handlery, kolejność implementacji, otwarte ryzyka i odnośniki do kodu. Plan opiera się wyłącznie na elementach `st=ok`.
+To move to the next phase run `python3 esb.py next` (it refuses while there are errors, disputed items, or unconfirmed hypotheses). Agree on it with the user; never use `--force` on your own.
+
+## Brownfield (a feature in an existing repo)
+1. **As-is:** the user names an entry point. Read code only from there downwards, as deep as needed. Record existing commands, events, aggregates and integrations with `code=path:symbol`, and `st=ok` when confirmed in the code.
+2. **To-be:** the user describes the feature, you ask questions. New elements are `src=agent st=hyp` (`ok` once confirmed); never claim they exist in the code and never give them a `code=` pointing at code that does not exist.
+3. **Delta:** state what is new, what changes, and which existing policies or read models are affected.
+For a small feature start at `phase: 2` on just the slice the change touches (skip Big Picture).
+
+## Final output
+When phase 3 is approved (no disputed items or hypotheses left), generate a **separate** file `docs/plan-<name>.md`: modules (bounded contexts), aggregates with invariants, commands as API, events as messages, policies as handlers, implementation order, open risks, and code references. The plan relies only on `st=ok` elements.
