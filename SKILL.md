@@ -29,6 +29,9 @@ Keys:
 - `src=biz|agent` — who wrote it.
 - `st=hyp|ok|disp|rej` — hypothesis, confirmed, disputed, rejected.
 - `code=path[:symbol]` — location in the codebase.
+- `at=EVENT_ID` — layout hint written by the board when the user drags a sticky to another column; leave it alone.
+
+The user may drag events on the board: that reorders their lines in the file, and `diff` reports it as a `timeline: E1 > E3 > E2` line. Treat the new order as the user's decision.
 
 Your entries are always `src=agent st=hyp`. New ID = next free number for the type prefix (E, C, A, P, R, X, G, H, Q, N). Write comments as `  > [agent] ...` under the element.
 
